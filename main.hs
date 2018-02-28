@@ -3,13 +3,14 @@ import Haste.App
 import Haste.DOM
 import Haste.Events
 import System.Directory
+import Data.List
 
 instance Node Server
 
 -- A log entry data-type
 data LogEntry = LogEntry { date :: Int
                          , originator :: String
-                         , typez :: String
+                         , typetask :: String
                          , status :: String
                          , comments :: String
                          , doc :: FilePath
@@ -40,7 +41,7 @@ sliceExt filename = takeWhile (/='.') filename
 -- Helper sanitize function. Very rigid as of now.
 sanitize :: FilePath -> FilePath
 sanitize f = if f == "./data" then "./data" else "?"
-
+ 
 -- Put files retrieved from the server into the browser
 putFiles :: [FilePath] -> Client ()
 putFiles [] = return ()
@@ -59,14 +60,32 @@ putFiles (file:filelist) = do
 -- Takes a filename, and creates a log entry form
 appendForm :: Elem -> Client ()
 appendForm filetag = withElems ["appendForm","appendTitle"] $ \[aF,aT] -> do
-  title <- getProp aT "innerHTML"
   filem <- getFirstChild filetag
   case filem of 
     Just x -> do 
       filename <- getProp x "innerHTML"
       setProp aT "innerHTML" ("Add your log entry to " ++ filename ++ " using the form below")
+      putForm filename aF
       -- implement below TODO
     Nothing -> return ()
+
+-- Helper input creation function
+formEntry :: String -> String -> Client Elem
+formEntry attr1 attr2 = do 
+  newElem "input" `with` [ attr "text" =: attr1, attr "name" =: attr2 ]
+
+putForm :: FilePath -> Elem -> Client ()
+putForm f formelem = do
+  br <- newElem "br"
+  date <- formEntry "input" "date"
+  ori <- formEntry "input" "originator"
+  ttask <- formEntry "input" "typetask"
+  stats <- formEntry "input" "status"
+  cmts <- formEntry "input" "comments"
+  doc <- formEntry "input" "doc"
+  setAttr formelem "id" f 
+
+  appendChildren formelem $ [date,br,ori,br,ttask,stats,cmts,doc]
 
 -- Takes a filename, a list of log headers, and creates a new latex project log file
 -- This is (obviously) done server-side. Also, pdflatex should be run
