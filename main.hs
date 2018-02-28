@@ -7,20 +7,20 @@ import System.Directory
 instance Node Server
 
 -- A log entry data-type
-data LogEntry = LogEntry { Date :: Int,
-                           Originator :: String,
-                           Type :: String,
-                           Status :: String,
-                           Comments :: String,
-                           Doc :: FilePath
+data LogEntry = LogEntry { date :: Int
+                         , originator :: String
+                         , typez :: String
+                         , status :: String
+                         , comments :: String
+                         , doc :: FilePath
                          }
 
 -- A log header
-data LogHeader = LogHeader { ProjName :: String,
-                             Author :: String,
-                             Members :: [String]
+data LogHeader = LogHeader { projName :: String,
+                             author :: String,
+                             members :: [String]
                            }
-                           
+
 -- `appendChildren parent children` adds a list of children to a parent element
 appendChildren :: Elem -> [Elem] -> Client ()
 appendChildren parent children = sequence_ [appendChild parent c | c <- children]
@@ -31,38 +31,42 @@ greet = static (native $ remote $ liftIO . putStrLn)
 
 -- Get log files from the server
 getFiles :: RemotePtr (String -> Server [FilePath])
-getFiles = static (remote $ liftIO . listDirectory)
+getFiles = static (remote $ liftIO . listDirectory . sanitize)
 
 -- File name extension slicing
 sliceExt :: FilePath -> String
 sliceExt filename = takeWhile (/='.') filename
 
--- sanitize input filepaths server-side to prevent malicious access
-sanitizeFilepath :: RemotePtr (FilePath -> Server FilePath)
-sanitizeFilepath = static (remote $ return . sanitize)
-
--- Helper sanitize function
+-- Helper sanitize function. Very rigid as of now.
 sanitize :: FilePath -> FilePath
-sanitize [] = []
-sanitize (x:[]) = if x == '.' then "?" else x:[] 
-sanitize (x:y:xs) = if (x == '.' && y == '.') then "?" else x:(sanitize (y:xs))
+sanitize f = if f == "./data" then "./data" else "?"
 
 -- Put files retrieved from the server into the browser
 putFiles :: [FilePath] -> Client ()
 putFiles [] = return ()
 putFiles (file:filelist) = do
   withElem "list" $ \list -> do
-    li <- newElem "li" `with` [ attr "class" =: "list-item", prop "innerHTML" =: (sliceExt file ++ "   ") ]
-    add <- newElem "a" `with` [ attr "href" =: "#", prop "innerHTML" =: "Add" ]
+    li <- newElem "li" `with` [ attr "class" =: "list-item" ] 
+    name <- newElem "span" `with` [ attr "id" =: (sliceExt file), prop "innerHTML" =: (sliceExt file ++ "   ") ]
+    add <- newElem "a" `with` [ attr "href" =: "#", attr "id" =: file, prop "innerHTML" =: "Add" ]
     spacing <- newElem "span" `with` [ prop "innerHTML" =: "     " ]
     -- Remember to change this to a .pdf relative file path once features are implemented!
     dl <- newElem "a" `with` [ attr "href" =: ("./data/" ++ file) , prop "innerHTML" =: "Download" ]
     appendChild list li
-    appendChildren li [add, spacing, dl]
+    appendChildren li [name, add, spacing, dl]
     putFiles filelist
 
 -- Takes a filename, and creates a log entry form
--- appendForm :: String -> Client ()
+appendForm :: Elem -> Client ()
+appendForm filetag = withElems ["appendForm","appendTitle"] $ \[aF,aT] -> do
+  title <- getProp aT "innerHTML"
+  filem <- getFirstChild filetag
+  case filem of 
+    Just x -> do 
+      filename <- getProp x "innerHTML"
+      setProp aT "innerHTML" ("Add your log entry to " ++ filename ++ " using the form below")
+      -- implement below TODO
+    Nothing -> return ()
 
 -- Takes a filename, a list of log headers, and creates a new latex project log file
 -- This is (obviously) done server-side. Also, pdflatex should be run
@@ -76,24 +80,16 @@ putFiles (file:filelist) = do
 -- Run the application
 main = runApp [start (Proxy :: Proxy Server)] $ do
   -- fetch stored tex files. Sanitize the input first!
-  name <- dispatch sanitizeFilepath "../ExpenseApp"
-  files <- dispatch getFiles name
+  files <- dispatch getFiles "./data"
   putFiles files
+
+  ul <- elemsByQS document "ul#list"
+  case ul of
+    (el:_) -> mapQS_ document "#list li" $ \el -> do (el `onEvent` Click $ \_ -> do appendForm el)
+    _      -> return ()
+
   withElem "btn" $ \btn -> do
     btn `onEvent` Click $ \_ -> do
       alert (toJSString $ "ok")
       
   return ()
-{-
-main :: IO ()
-main = do
-  ul <- elemsByQS document "ul#demo-list"
-  case ul of
-    (el:_) -> mapQS_ document "#demo-list li" (handleRemove el)
-    _      -> error "Element 'ul#demo-list' not found"
-
-handleRemove :: Elem -> Elem -> IO HandlerInfo
-handleRemove ul li = do
-  onEvent li Click $ \_ -> do
-    deleteChild ul li
--}
