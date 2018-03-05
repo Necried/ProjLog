@@ -31,8 +31,8 @@ greet :: RemotePtr (String -> Server ())
 greet = static (native $ remote $ liftIO . putStrLn)
 
 -- Get log files from the server
-getFiles :: RemotePtr (String -> Server [FilePath])
-getFiles = static (remote $ liftIO . listDirectory . sanitize)
+getFiles :: RemotePtr (Server [FilePath])
+getFiles = static (remote . liftIO $ listDirectory "./data")
 
 -- File name extension slicing
 sliceExt :: FilePath -> String
@@ -65,7 +65,12 @@ appendForm filetag = withElems ["appendForm","appendTitle"] $ \[aF,aT] -> do
     Just x -> do 
       filename <- getProp x "innerHTML"
       setProp aT "innerHTML" ("Add your log entry to " ++ filename ++ " using the form below")
-      putForm filename aF
+      setAttr aF "id" filename
+      putForm aF "Date:" "date" 
+      putForm aF "Task type:" "typetask"
+      putForm aF "Status:" "status"
+      putForm aF "Comments:" "comments"
+      putForm aF "Supporting Documents:" "doc"
       -- implement below TODO
     Nothing -> return ()
 
@@ -74,18 +79,14 @@ formEntry :: String -> String -> Client Elem
 formEntry attr1 attr2 = do 
   newElem "input" `with` [ attr "text" =: attr1, attr "name" =: attr2 ]
 
-putForm :: FilePath -> Elem -> Client ()
-putForm f formelem = do
+putForm :: Elem -> String -> String -> Client ()
+putForm formelem msg id = do
+  span <- newElem "span" `with` [ prop "innerHTML" =: msg ]
   br <- newElem "br"
-  date <- formEntry "input" "date"
-  ori <- formEntry "input" "originator"
-  ttask <- formEntry "input" "typetask"
-  stats <- formEntry "input" "status"
-  cmts <- formEntry "input" "comments"
-  doc <- formEntry "input" "doc"
-  setAttr formelem "id" f 
+  date <- formEntry "input" id
+  br2 <- newElem "br"
 
-  appendChildren formelem $ [date,br,ori,br,ttask,stats,cmts,doc]
+  appendChildren formelem $ [span,br,date,br2]
 
 -- Takes a filename, a list of log headers, and creates a new latex project log file
 -- This is (obviously) done server-side. Also, pdflatex should be run
@@ -99,7 +100,7 @@ putForm f formelem = do
 -- Run the application
 main = runApp [start (Proxy :: Proxy Server)] $ do
   -- fetch stored tex files. Sanitize the input first!
-  files <- dispatch getFiles "./data"
+  files <- dispatch getFiles
   putFiles files
 
   ul <- elemsByQS document "ul#list"
