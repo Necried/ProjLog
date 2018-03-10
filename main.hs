@@ -2,6 +2,8 @@
 import Haste.App
 import Haste.DOM
 import Haste.Events
+import Haste.Ajax
+
 import System.Directory
 import Data.List
 
@@ -14,13 +16,13 @@ data LogEntry = LogEntry { date :: Int
                          , status :: String
                          , comments :: String
                          , doc :: FilePath
-                         }
+                         } deriving (Read, Show)
 
 -- A log header
 data LogHeader = LogHeader { projName :: String,
                              author :: String,
                              members :: [String]
-                           }
+                           } deriving (Read, Show)
 
 -- `appendChildren parent children` adds a list of children to a parent element
 appendChildren :: Elem -> [Elem] -> Client ()
@@ -57,6 +59,18 @@ putFiles (file:filelist) = do
     appendChildren li [name, add, spacing, dl]
     putFiles filelist
 
+putFiles' :: FilePath -> Client ()
+putFiles' file = do
+  withElem "list" $ \list -> do
+    li <- newElem "li" `with` [ attr "class" =: "list-item" ] 
+    name <- newElem "span" `with` [ attr "id" =: (sliceExt file), prop "innerHTML" =: (sliceExt file ++ "   ") ]
+    add <- newElem "a" `with` [ attr "href" =: "#", attr "id" =: file, prop "innerHTML" =: "Add" ]
+    spacing <- newElem "span" `with` [ prop "innerHTML" =: "     " ]
+    -- Remember to change this to a .pdf relative file path once features are implemented!
+    dl <- newElem "a" `with` [ attr "href" =: ("./data/" ++ file) , prop "innerHTML" =: "Download" ]
+    appendChild list li
+    appendChildren li [name, add, spacing, dl]
+
 -- Takes a filename, and creates a log entry form
 appendForm :: Elem -> Client ()
 appendForm filetag = withElems ["appendForm","appendTitle"] $ \[aF,aT] -> do
@@ -71,6 +85,9 @@ appendForm filetag = withElems ["appendForm","appendTitle"] $ \[aF,aT] -> do
       putForm aF "Status:" "status"
       putForm aF "Comments:" "comments"
       putForm aF "Supporting Documents:" "doc"
+      -- Submission buttom
+      submit <- newElem "input" `with` [ attr "type" =: "submit", attr "value" =: "Submit" ]
+      appendChild aF submit
       -- implement below TODO
     Nothing -> return ()
 
@@ -95,21 +112,36 @@ putForm formelem msg id = do
 
 -- Takes a filepath, a list of log entries, and appends to the latex project log file
 -- Also done server-side
--- appendLog :: RemotePtr (FilePath -> [String] -> Server ())
+-- writeLog :: RemotePtr (FilePath -> [String] -> Server ())
+
+-- Takes a filename, and creates a log creation form
+-- ?
+
+-- Creates a form for creating a new log when clicked
+creationForm :: Elem -> Client ()
+creationForm elem = do
+  -- create the form
+  putForm elem "Project Log Name" "projName"
+  putForm elem "Author name" "author"
+  putForm elem "Members (seperated by commas)" "members"
+  submit <- newElem "input" `with` [ attr "type" =: "submit", attr "value" =: "Submit" ]
+  appendChild elem submit
 
 -- Run the application
 main = runApp [start (Proxy :: Proxy Server)] $ do
   -- fetch stored tex files. Sanitize the input first!
   files <- dispatch getFiles
-  putFiles files
+  mapM_ putFiles' files
 
   ul <- elemsByQS document "ul#list"
   case ul of
     (el:_) -> mapQS_ document "#list li" $ \el -> do (el `onEvent` Click $ \_ -> do appendForm el)
     _      -> return ()
 
-  withElem "btn" $ \btn -> do
+  withElems ["btn","formNew","formNewF"] $ \[btn,header,fm] -> do
     btn `onEvent` Click $ \_ -> do
-      alert (toJSString $ "ok")
-      
+      setProp header "innerHTML" "Create your Project Log using the form below"
+      creationForm fm
+
+  withElem "appendForm"      
   return ()
