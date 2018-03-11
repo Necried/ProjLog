@@ -1,0 +1,39 @@
+\documentclass[12pt]{article}
+
+\usepackage{graphicx}
+\usepackage{paralist}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{tabularx}
+
+\oddsidemargin 0mm
+\evensidemargin 0mm
+\textwidth 160mm
+\textheight 200mm
+
+\pagestyle{plain}
+\pagenumbering{arabic}
+
+\newcounter{stepnum}
+
+\title{Title}
+\author{Me}
+\date{\today}
+\begin{document}
+\maketitle
+\section{Team Members}
+\begin{itemize}
+\item Me
+\end{itemize}
+\newpage
+\section{Logs}
+\begin{table}[h]
+\begin{tabularx}{\textwidth}{|X|X|X|X|X|X|X|}
+\hline
+Timestamp & Originator & Type & Status & Comments & Supporting Documents\\
+\hline
+100318 & Lucas Dutton & Issue & Complete & Resolved a very big team issue & Resolution.doc\\
+\hline
+\end{tabularx}
+\end{table}
+\end{document}

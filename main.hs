@@ -6,23 +6,9 @@ import Haste.Ajax
 
 import System.Directory
 import Data.List
+import Filemanip
 
 instance Node Server
-
--- A log entry data-type
-data LogEntry = LogEntry { date :: Int
-                         , originator :: String
-                         , typetask :: String
-                         , status :: String
-                         , comments :: String
-                         , doc :: FilePath
-                         } deriving (Read, Show)
-
--- A log header
-data LogHeader = LogHeader { projName :: String,
-                             author :: String,
-                             members :: [String]
-                           } deriving (Read, Show)
 
 -- `appendChildren parent children` adds a list of children to a parent element
 appendChildren :: Elem -> [Elem] -> Client ()
@@ -143,5 +129,5 @@ main = runApp [start (Proxy :: Proxy Server)] $ do
       setProp header "innerHTML" "Create your Project Log using the form below"
       creationForm fm
 
-  withElem "appendForm"      
+  -- withElem "appendForm"      
   return ()
